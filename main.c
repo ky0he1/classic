@@ -6,28 +6,23 @@
 #include <string.h>
 
 typedef enum {
-    // Punctuators
-    TK_PUNCT,
-    // Numeric literals
-    TK_NUM,
-    // End-of-file markers
-    TK_EOF,
+    TK_PUNCT, // Punctuators
+    TK_NUM,   // Numeric literals
+    TK_EOF,   // End-of-file markers
 } TokenKind;
 
 // Token type
 typedef struct Token Token;
 struct Token {
-    // Token kind
-    TokenKind kind;
-    // Next token
-    Token* next;
-    // If kind is TK_NUM, its value
-    int val;
-    // Token location
-    char* loc;
-    // Token length
-    int len;
+    TokenKind kind; // Token kind
+    Token* next;    // Next token
+    int val;        // If kind is TK_NUM, its value
+    char* loc;      // Token location
+    int len;        // Token length
 };
+
+// Input string
+static char* current_input;
 
 // Reports an error and exit.
 static void
@@ -37,6 +32,32 @@ error(char* fmt, ...) {
     vfprintf(stderr, fmt, ap);
     fprintf(stderr, "\n");
     exit(1);
+}
+
+// Reports an error location and exit.
+static void
+verror_at(char* loc, char* fmt, va_list ap) {
+    int pos = loc - current_input;
+    fprintf(stderr, "%s\n", current_input);
+    fprintf(stderr, "%*s", pos, ""); // print pos spaces.
+    fprintf(stderr, "^ ");
+    vfprintf(stderr, fmt, ap);
+    fprintf(stderr, "\n");
+    exit(1);
+}
+
+static void
+error_at(char* loc, char* fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    verror_at(loc, fmt, ap);
+}
+
+static void
+error_tok(Token* tok, char* fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    verror_at(tok->loc, fmt, ap);
 }
 
 // Consumes the current token if it matches `op`.
@@ -49,7 +70,7 @@ equal(Token* tok, char* op) {
 static Token*
 skip(Token* tok, char* s) {
     if (!equal(tok, s)) {
-        error("expected '%s'", s);
+        error_tok(tok, "expected '%s'", s);
     }
     return tok->next;
 }
@@ -58,7 +79,7 @@ skip(Token* tok, char* s) {
 static int
 get_number(Token* tok) {
     if (tok->kind != TK_NUM) {
-        error("expected a number");
+        error_tok(tok, "expected a number");
     }
     return tok->val;
 }
@@ -73,9 +94,10 @@ new_token(TokenKind kind, char* start, char* end) {
     return tok;
 }
 
-// Tokenize `p` and returns new tokens.
+// Tokenize `current_input` and returns new tokens.
 static Token*
-tokenize(char* p) {
+tokenize(void) {
+    char* p = current_input;
     Token head = {};
     Token* cur = &head;
 
@@ -101,7 +123,7 @@ tokenize(char* p) {
             p++;
             continue;
         }
-        error("invalid token");
+        error_at(p, "invalid token");
     }
 
     cur = cur->next = new_token(TK_EOF, p, p);
@@ -113,7 +135,8 @@ main(int argc, char** argv) {
     if (argc != 2)
         error("%s: invalid number of arguments", argv[0]);
 
-    Token* tok = tokenize(argv[1]);
+    current_input = argv[1];
+    Token* tok = tokenize();
 
     printf("  .globl main\n");
     printf("main:\n");
