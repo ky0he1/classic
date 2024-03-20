@@ -5,3 +5,6 @@
 **/a.out
 /tmp*
 /classic
+/memo/*
+peda-session-classic.txt
+.gdb_history
